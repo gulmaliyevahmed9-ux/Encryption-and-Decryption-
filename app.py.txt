@@ -1,0 +1,410 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import hashlib
+import base64
+
+from database import init_db, add_user, get_user
+
+
+def hash_password(password: str) -> str:
+    """Şifrəni SHA-256 ilə hash edir."""
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+
+class EncryptionApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("DGKA Encryption / Decryption Project")
+        self.root.geometry("800x500")
+        self.root.resizable(False, False)
+
+        # Verilənlər bazasını hazırla
+        init_db()
+
+        # Dizayn rəngləri
+        self.bg_color = "#1e1e2f"
+        self.card_color = "#2b2b3c"
+        self.accent_color = "#4caf50"
+        self.text_color = "#ffffff"
+
+        self.root.configure(bg=self.bg_color)
+
+        self.current_user = None
+        self.login_frame = None
+        self.main_frame = None
+
+        self.create_login_frame()
+
+    # ---------- LOGIN / REGISTER EKRANI ----------
+
+    def create_login_frame(self):
+        if self.main_frame is not None:
+            self.main_frame.destroy()
+
+        self.login_frame = tk.Frame(self.root, bg=self.bg_color)
+        self.login_frame.pack(expand=True, fill="both", padx=40, pady=40)
+
+        title = tk.Label(
+            self.login_frame,
+            text="DGKA Encryption / Decryption System",
+            font=("Segoe UI", 20, "bold"),
+            bg=self.bg_color,
+            fg=self.text_color,
+        )
+        title.pack(pady=(0, 20))
+
+        card = tk.Frame(self.login_frame, bg=self.card_color)
+        card.pack(pady=10, ipadx=20, ipady=20)
+
+        tk.Label(
+            card, text="Username:", font=("Segoe UI", 11),
+            bg=self.card_color, fg=self.text_color
+        ).grid(row=0, column=0, padx=10, pady=10, sticky="e")
+
+        self.entry_username = tk.Entry(card, font=("Segoe UI", 11), width=30)
+        self.entry_username.grid(row=0, column=1, padx=10, pady=10)
+
+        tk.Label(
+            card, text="Password:", font=("Segoe UI", 11),
+            bg=self.card_color, fg=self.text_color
+        ).grid(row=1, column=0, padx=10, pady=10, sticky="e")
+
+        self.entry_password = tk.Entry(card, font=("Segoe UI", 11), show="*", width=30)
+        self.entry_password.grid(row=1, column=1, padx=10, pady=10)
+
+        btn_frame = tk.Frame(card, bg=self.card_color)
+        btn_frame.grid(row=2, column=0, columnspan=2, pady=(15, 5))
+
+        btn_login = tk.Button(
+            btn_frame,
+            text="Login",
+            font=("Segoe UI", 10, "bold"),
+            width=14,
+            bg=self.accent_color,
+            fg="white",
+            activebackground="#66bb6a",
+            relief="flat",
+            command=self.login,
+        )
+        btn_login.pack(side="left", padx=5)
+
+        btn_register = tk.Button(
+            btn_frame,
+            text="Register",
+            font=("Segoe UI", 10, "bold"),
+            width=14,
+            bg="#2196f3",
+            fg="white",
+            activebackground="#42a5f5",
+            relief="flat",
+            command=self.register,
+        )
+        btn_register.pack(side="left", padx=5)
+
+        info = tk.Label(
+            self.login_frame,
+            text="Layihə: Encryption / Decryption • Sefa Bakan • DGKA",
+            font=("Segoe UI", 9),
+            bg=self.bg_color,
+            fg="#cccccc",
+        )
+        info.pack(pady=10)
+
+    def login(self):
+        username = self.entry_username.get().strip()
+        password = self.entry_password.get().strip()
+
+        if not username or not password:
+            messagebox.showwarning("Xəta", "İstifadəçi adı və şifrə boş ola bilməz!")
+            return
+
+        row = get_user(username)
+        if row is None:
+            messagebox.showerror("Xəta", "Belə istifadəçi yoxdur! Zəhmət olmasa qeydiyyatdan keçin.")
+            return
+
+        stored_username, stored_hash = row
+
+        if stored_hash != hash_password(password):
+            messagebox.showerror("Xəta", "Şifrə yanlışdır!")
+            return
+
+        self.current_user = stored_username
+        messagebox.showinfo("Uğurlu", f"Xoş gəldiniz, {stored_username}!")
+        self.show_main_screen()
+
+    def register(self):
+        username = self.entry_username.get().strip()
+        password = self.entry_password.get().strip()
+
+        if not username or not password:
+            messagebox.showwarning("Xəta", "İstifadəçi adı və şifrə boş ola bilməz!")
+            return
+
+        password_hash = hash_password(password)
+        success = add_user(username, password_hash)
+
+        if success:
+            messagebox.showinfo("Uğurlu", "Qeydiyyat tamamlandı! İndi login edə bilərsiniz.")
+        else:
+            messagebox.showerror("Xəta", "Bu istifadəçi adı artıq mövcuddur!")
+
+    # ---------- ƏSAS ŞİFRƏLƏMƏ EKRANI ----------
+
+    def show_main_screen(self):
+        if self.login_frame is not None:
+            self.login_frame.destroy()
+
+        self.main_frame = tk.Frame(self.root, bg=self.bg_color)
+        self.main_frame.pack(expand=True, fill="both", padx=15, pady=15)
+
+        header = tk.Frame(self.main_frame, bg=self.bg_color)
+        header.pack(fill="x")
+
+        lbl_title = tk.Label(
+            header,
+            text="Encryption / Decryption Tətbiqi",
+            font=("Segoe UI", 18, "bold"),
+            bg=self.bg_color,
+            fg=self.text_color,
+        )
+        lbl_title.pack(side="left", padx=(0, 10))
+
+        lbl_user = tk.Label(
+            header,
+            text=f"İstifadəçi: {self.current_user}",
+            font=("Segoe UI", 10),
+            bg=self.bg_color,
+            fg="#bbbbbb",
+        )
+        lbl_user.pack(side="left")
+
+        btn_logout = tk.Button(
+            header,
+            text="Logout",
+            font=("Segoe UI", 9, "bold"),
+            bg="#e53935",
+            fg="white",
+            relief="flat",
+            command=self.logout,
+        )
+        btn_logout.pack(side="right", padx=5)
+
+        # Alqoritm seçimi
+        algo_card = tk.Frame(self.main_frame, bg=self.card_color)
+        algo_card.pack(fill="x", pady=(15, 10), ipady=10, ipadx=10)
+
+        tk.Label(
+            algo_card,
+            text="Şifrələmə Metodu:",
+            font=("Segoe UI", 11),
+            bg=self.card_color,
+            fg=self.text_color,
+        ).grid(row=0, column=0, padx=10, pady=10, sticky="w")
+
+        self.algo_var = tk.StringVar(value="MD5 Hash")
+        self.combo_algo = ttk.Combobox(
+            algo_card,
+            textvariable=self.algo_var,
+            state="readonly",
+            values=["MD5 Hash", "Reverse Text", "Caesar Cipher", "Base64"],
+            width=25,
+        )
+        self.combo_algo.grid(row=0, column=1, padx=10, pady=10, sticky="w")
+        self.combo_algo.bind("<<ComboboxSelected>>", lambda e: self.update_algo_ui())
+
+        self.lbl_key = tk.Label(
+            algo_card,
+            text="Açar (shift):",
+            font=("Segoe UI", 11),
+            bg=self.card_color,
+            fg=self.text_color,
+        )
+        self.entry_key = tk.Entry(algo_card, font=("Segoe UI", 11), width=10)
+
+        # Mətn sahələri
+        text_frame = tk.Frame(self.main_frame, bg=self.bg_color)
+        text_frame.pack(expand=True, fill="both")
+
+        input_card = tk.Frame(text_frame, bg=self.card_color)
+        input_card.pack(side="left", expand=True, fill="both", padx=(0, 8), pady=(0, 5))
+
+        tk.Label(
+            input_card,
+            text="Düz Mətni Daxil Edin:",
+            font=("Segoe UI", 11, "bold"),
+            bg=self.card_color,
+            fg=self.text_color,
+        ).pack(anchor="w", padx=10, pady=(10, 0))
+
+        self.txt_input = tk.Text(input_card, height=10, font=("Consolas", 11), wrap="word")
+        self.txt_input.pack(expand=True, fill="both", padx=10, pady=10)
+
+        output_card = tk.Frame(text_frame, bg=self.card_color)
+        output_card.pack(side="left", expand=True, fill="both", padx=(8, 0), pady=(0, 5))
+
+        tk.Label(
+            output_card,
+            text="Nəticə:",
+            font=("Segoe UI", 11, "bold"),
+            bg=self.card_color,
+            fg=self.text_color,
+        ).pack(anchor="w", padx=10, pady=(10, 0))
+
+        self.txt_output = tk.Text(output_card, height=10, font=("Consolas", 11), wrap="word")
+        self.txt_output.pack(expand=True, fill="both", padx=10, pady=10)
+
+        btn_frame = tk.Frame(self.main_frame, bg=self.bg_color)
+        btn_frame.pack(fill="x", pady=5)
+
+        btn_encrypt = tk.Button(
+            btn_frame,
+            text="Şifrələ (Encrypt)",
+            font=("Segoe UI", 10, "bold"),
+            width=18,
+            bg=self.accent_color,
+            fg="white",
+            relief="flat",
+            command=self.encrypt_action,
+        )
+        btn_encrypt.pack(side="left", padx=5, pady=5)
+
+        btn_decrypt = tk.Button(
+            btn_frame,
+            text="Şifrəni Aç (Decrypt)",
+            font=("Segoe UI", 10, "bold"),
+            width=18,
+            bg="#ff9800",
+            fg="white",
+            relief="flat",
+            command=self.decrypt_action,
+        )
+        btn_decrypt.pack(side="left", padx=5, pady=5)
+
+        btn_clear = tk.Button(
+            btn_frame,
+            text="Təmizlə",
+            font=("Segoe UI", 10),
+            width=12,
+            bg="#757575",
+            fg="white",
+            relief="flat",
+            command=self.clear_texts,
+        )
+        btn_clear.pack(side="left", padx=5, pady=5)
+
+        self.update_algo_ui()
+
+    def logout(self):
+        self.current_user = None
+        if self.main_frame is not None:
+            self.main_frame.destroy()
+        self.create_login_frame()
+
+    def update_algo_ui(self):
+        """Caesar seçiləndə açar sahəsini göstərir, digərlərində gizlədir."""
+        algo = self.algo_var.get()
+        if algo == "Caesar Cipher":
+            self.lbl_key.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="w")
+            self.entry_key.grid(row=1, column=1, padx=10, pady=(0, 10), sticky="w")
+        else:
+            self.lbl_key.grid_forget()
+            self.entry_key.grid_forget()
+
+    def clear_texts(self):
+        self.txt_input.delete("1.0", tk.END)
+        self.txt_output.delete("1.0", tk.END)
+
+    # ---------- ENCRYPT / DECRYPT FUNKSİYALARI ----------
+
+    def encrypt_action(self):
+        algo = self.algo_var.get()
+        text = self.txt_input.get("1.0", tk.END).rstrip("\n")
+
+        if not text:
+            messagebox.showwarning("Xəta", "Düz mətni daxil edin!")
+            return
+
+        if algo == "MD5 Hash":
+            result = hashlib.md5(text.encode("utf-8")).hexdigest()
+        elif algo == "Reverse Text":
+            result = text[::-1]
+        elif algo == "Caesar Cipher":
+            shift = self.get_shift()
+            if shift is None:
+                return
+            result = self.caesar_cipher(text, shift)
+        elif algo == "Base64":
+            result = base64.b64encode(text.encode("utf-8")).decode("utf-8")
+        else:
+            result = ""
+
+        self.txt_output.delete("1.0", tk.END)
+        self.txt_output.insert(tk.END, result)
+
+    def decrypt_action(self):
+        algo = self.algo_var.get()
+        text = self.txt_input.get("1.0", tk.END).rstrip("\n")
+
+        if not text:
+            messagebox.showwarning("Xəta", "Şifrələnmiş mətni daxil edin! (Input hissəsinə)")
+            return
+
+        if algo == "MD5 Hash":
+            messagebox.showinfo("Məlumat", "MD5 hash tərsinə açıla bilmir (one-way function).")
+            return
+        elif algo == "Reverse Text":
+            result = text[::-1]
+        elif algo == "Caesar Cipher":
+            shift = self.get_shift()
+            if shift is None:
+                return
+            result = self.caesar_cipher(text, -shift)
+        elif algo == "Base64":
+            try:
+                result = base64.b64decode(text.encode("utf-8")).decode("utf-8")
+            except Exception:
+                messagebox.showerror("Xəta", "Base64 formatı düzgün deyil!")
+                return
+        else:
+            result = ""
+
+        self.txt_output.delete("1.0", tk.END)
+        self.txt_output.insert(tk.END, result)
+
+    def get_shift(self):
+        key_text = self.entry_key.get().strip()
+        if not key_text:
+            messagebox.showwarning("Xəta", "Caesar üçün açar (shift) daxil edin!")
+            return None
+
+        try:
+            shift = int(key_text)
+        except ValueError:
+            messagebox.showerror("Xəta", "Shift tam ədəd olmalıdır!")
+            return None
+
+        return shift
+
+    @staticmethod
+    def caesar_cipher(text, shift):
+        """Hem böyük, həm kiçik latın hərfləri üçün Caesar şifrələmə."""
+        result_chars = []
+        for ch in text:
+            if "a" <= ch <= "z":
+                base = ord("a")
+                offset = (ord(ch) - base + shift) % 26
+                result_chars.append(chr(base + offset))
+            elif "A" <= ch <= "Z":
+                base = ord("A")
+                offset = (ord(ch) - base + shift) % 26
+                result_chars.append(chr(base + offset))
+            else:
+                result_chars.append(ch)
+        return "".join(result_chars)
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = EncryptionApp(root)
+    root.mainloop()

@@ -1,0 +1,55 @@
+import sqlite3
+
+DB_NAME = "database.db"
+
+
+def init_db():
+    """Verilənlər bazasını yaradıb users cədvəlini açır."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def add_user(username: str, password_hash: str) -> bool:
+    """
+    Yeni istifadəçi əlavə edir.
+    Eyni username varsa False qaytarır.
+    """
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+            (username, password_hash),
+        )
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        # username artıq mövcuddur
+        return False
+    finally:
+        conn.close()
+
+
+def get_user(username: str):
+    """
+    İstifadəçini username-ə görə tapır.
+    Tapmasa None qaytarır, tapsa (username, password_hash) tuple qaytarır.
+    """
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT username, password_hash FROM users WHERE username = ?",
+        (username,),
+    )
+    result = cursor.fetchone()
+    conn.close()
+    return result
